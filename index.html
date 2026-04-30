@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이로하우스 카톡 퀴즈</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --kakao-bg: #b2c7da;
+  --bubble-other: #ffffff;
+  --text-dark: #1a1a1a;
+  --text-meta: #5a6878;
+  --accent: #2d5fad;
+  --correct: #2e7d32;
+  --wrong: #c62828;
+  --hidden: #d4dae0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Malgun Gothic', sans-serif;
+  background: var(--kakao-bg);
+  min-height: 100vh;
+  padding: 16px;
+  color: var(--text-dark);
+}
+
+.container { max-width: 600px; margin: 0 auto; }
+header { text-align: center; padding: 16px 0 12px; }
+header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+header .subtitle { font-size: 13px; color: var(--text-meta); margin-top: 4px; }
+
+.progress-bar {
+  background: rgba(255,255,255,0.5);
+  border-radius: 999px;
+  height: 6px;
+  margin: 12px 0 16px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  background: var(--accent);
+  height: 100%;
+  transition: width 0.3s;
+  border-radius: 999px;
+}
+
+.score-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-meta);
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.prompt-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  border-left: 4px solid var(--accent);
+}
+
+.prompt-card .prompt-label {
+  font-size: 11px;
+  color: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.prompt-card .prompt-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.chat-card {
+  background: var(--kakao-bg);
+  border-radius: 16px;
+  padding: 16px 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid rgba(255,255,255,0.4);
+}
+
+.date-divider { text-align: center; margin: 4px 0 12px; }
+
+.date-divider span {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(0,0,0,0.15);
+  color: white;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+  align-items: flex-start;
+}
+
+.message-nick {
+  font-size: 12px;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+  margin-left: 4px;
+  font-weight: 500;
+}
+
+.message-bubble {
+  background: var(--bubble-other);
+  padding: 8px 12px;
+  border-radius: 16px;
+  border-top-left-radius: 4px;
+  max-width: 85%;
+  font-size: 14.5px;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+}
+
+.message-question .message-bubble {
+  background: #fffae6;
+  border: 2px solid #f4b942;
+}
+
+.message-answer-slot .message-nick {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.message-answer-slot .message-bubble {
+  background: var(--hidden);
+  color: transparent;
+  user-select: none;
+  position: relative;
+  min-width: 180px;
+  min-height: 36px;
+}
+
+.message-answer-slot .message-bubble::after {
+  content: "???";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #6a7889;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 4px;
+}
+
+.message-answer-slot.revealed .message-bubble {
+  background: #c8e6c9;
+  color: var(--text-dark);
+  animation: pop 0.3s;
+}
+
+.message-answer-slot.revealed .message-bubble::after { display: none; }
+
+@keyframes pop {
+  0% { transform: scale(0.95); }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.context-fade .message-bubble { opacity: 0.7; }
+.context-fade-after .message-bubble { opacity: 0.45; }
+.message-after-answer { display: none; }
+.revealed-context .message-after-answer { display: flex; }
+
+.input-area {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.input-row { display: flex; gap: 8px; align-items: stretch; }
+
+.text-input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1.5px solid #d0d7de;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 0;
+}
+
+.text-input:focus { border-color: var(--accent); }
+.text-input:disabled { background: #f6f8fa; color: var(--text-meta); }
+
+button.btn {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+button.btn-primary { background: var(--accent); color: white; }
+button.btn-primary:hover { background: #1d4988; }
+button.btn-primary:disabled { background: #95a3b3; cursor: not-allowed; }
+
+button.btn-secondary { background: #e9ecef; color: var(--text-dark); }
+button.btn-secondary:hover { background: #dde2e6; }
+
+.feedback {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.feedback.correct-fb { background: #e8f5e9; color: var(--correct); border: 1px solid #a5d6a7; }
+.feedback.wrong-fb { background: #ffebee; color: var(--wrong); border: 1px solid #ef9a9a; }
+.feedback.partial-fb { background: #fff8e1; color: #ef6c00; border: 1px solid #ffcc80; }
+
+.feedback-title { font-weight: 700; margin-bottom: 6px; }
+.feedback .my-answer { margin-top: 6px; color: var(--text-meta); font-size: 13px; }
+
+.button-row { margin-top: 12px; display: flex; gap: 8px; }
+.button-row .btn { flex: 1; }
+
+.final-screen {
+  background: white;
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+
+.final-screen h2 { font-size: 28px; margin-bottom: 8px; }
+
+.final-screen .score {
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 16px 0;
+}
+
+.final-screen .grade {
+  font-size: 18px;
+  color: var(--text-meta);
+  margin-bottom: 24px;
+}
+
+.tag-correct, .tag-wrong, .tag-partial {
+  display: inline-block;
+  padding: 2px 8px;
+  color: white;
+  border-radius: 999px;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.tag-correct { background: var(--correct); }
+.tag-wrong { background: var(--wrong); }
+.tag-partial { background: #ef6c00; }
+
+.review-item {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f6f8fa;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🏠 이로하우스 카톡 퀴즈</h1>
+    <div class="subtitle">대화 흐름을 보고 빈 칸의 답변을 추리해보세요</div>
+  </header>
+
+  <div id="quiz-area"></div>
+</div>
+
+<script type="application/json" id="quiz-data">[{"context_before": [{"nick": "상현", "text": "오늘이래서 당황"}, {"nick": "시연", "text": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ"}, {"nick": "김대경", "text": "돈받고 마작치기 진짜 부럽다"}, {"nick": "상현", "text": "돈받고 마작못치기중인데"}], "question": {"nick": "상현", "text": "@근규햄 이거 분챔 토요일몇시랬죠?"}, "context_middle": [], "answer": {"nick": "근규", "text": "일욜3시"}, "context_after": [{"nick": "상현", "text": "ㅇㅋㅇㅋ\\"}, {"nick": "상현", "text": "분챔"}, {"nick": "상현", "text": "3반장이였나?"}, {"nick": "하예슬", "text": "예쓰"}], "date": "2025년 10월 16일", "prompt": "대회는 언제일까?", "accept": ["일욜3시", "일요일3시", "일요일 3시", "일욜 3시", "일3시", "일요3시"], "hint": null, "scoring": {"scoring_type": "all_keywords", "required_groups": [["일요일", "일욜", "일욘", "일욜일"], ["3시", "15시", "오후 3", "오후3", "3시쯤", "세시"]], "late_only": true}}, {"context_before": [{"nick": "시연", "text": "거치대안하면"}, {"nick": "시연", "text": "손목박살쇼"}, {"nick": "김대경", "text": "술보다는 마작밤샘이 하고싶을때도있어"}, {"nick": "상현", "text": "요"}, {"nick": "다은", "text": "Yo"}], "question": {"nick": "덕재", "text": "혹시 로하하우스 몇층인가요??"}, "context_middle": [], "answer": {"nick": "최건우", "text": "6층이요"}, "context_after": [{"nick": "하예슬", "text": "6층"}, {"nick": "이로하", "text": "6"}, {"nick": "하예슬", "text": "마중나갈까여"}, {"nick": "덕재", "text": "다옴"}], "date": "2025년 10월 31일", "prompt": "몇 층일까?", "accept": ["6층", "6"], "hint": null, "scoring": {"scoring_type": "any_keyword", "accept": ["6층", "육층", "6"]}}, {"context_before": [{"nick": "상현", "text": "누구더라"}, {"nick": "김서정", "text": "잠만"}, {"nick": "상현", "text": "99?"}, {"nick": "승철", "text": "99도 쯥"}], "question": {"nick": "김서정", "text": "누가 99야?"}, "context_middle": [], "answer": {"nick": "상현", "text": "명현이"}, "context_after": [{"nick": "김명현", "text": "저요"}, {"nick": "김서정", "text": "엥"}, {"nick": "김명현", "text": "저랑 재원이"}, {"nick": "상현", "text": "재원이도"}], "date": "2025년 8월 19일", "prompt": "99년생은 누구일까?", "accept": ["명현", "김명현"], "hint": null, "scoring": {"scoring_type": "any_keyword", "accept": ["명현", "김명현"]}}, {"context_before": [{"nick": "김서정", "text": "건우냐 집 구경이 목적"}, {"nick": "최건우", "text": "승철햄까지 7명으로 할게여"}, {"nick": "최건우", "text": "대회 끝나고 편하게 오십셔"}, {"nick": "시연", "text": "그럼"}], "question": {"nick": "시연", "text": "마파는 누구랑해?"}, "context_middle": [], "answer": {"nick": "최건우", "text": "건우 다은 시연"}, "context_after": [{"nick": "최건우", "text": "서정 로하 중 누가 먼저지"}, {"nick": "김서정", "text": "러하"}, {"nick": "김서정", "text": "!!"}, {"nick": "최건우", "text": "그럼 로하햄까지 4명으로 하겟슴다"}], "date": "2025년 7월 29일", "prompt": "마리오파티는 누구누구랑 한다고 했을까?", "accept": ["건우 다은 시연", "건우다은시연", "다은 건우 시연", "시연 건우 다은", "건우, 다은, 시연", "건우/다은/시연", "건우 다은 시연 로하", "건우 다은 시연 이로하", "건우 로하 다은 시연", "로하 건우 다은 시연", "이로하", "로하"], "hint": null, "scoring": {"scoring_type": "any_keyword", "accept": ["건우 다은 시연", "건우다은시연", "다은 건우 시연", "시연 건우 다은", "건우, 다은, 시연", "건우/다은/시연", "건우 다은 시연 로하", "건우 다은 시연 이로하", "건우 로하 다은 시연", "로하 건우 다은 시연", "이로하", "로하"]}}, {"context_before": [{"nick": "상현", "text": "다그렇죠 피곤하시겠다"}, {"nick": "김대경", "text": "첫차운행이 또..."}, {"nick": "이로하", "text": "일찍 출근했으니까 채시 일어나기 전에 퇴근하기가 목표"}, {"nick": "이로하", "text": "퇴근했다 채시 진짜 아직 안 일어났냐"}], "question": {"nick": "현배", "text": "채시가 누구임?"}, "context_middle": [], "answer": {"nick": "다은", "text": "최시연씨요"}, "context_after": [{"nick": "시연", "text": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ"}, {"nick": "시연", "text": "접니다,,"}, {"nick": "시연", "text": "예 방금눈떴구요.."}, {"nick": "지니", "text": "잠만보냐고"}], "date": "2025년 5월 9일", "prompt": "\"채시\"는 누구를 말하는 걸까?", "accept": ["최시연", "시연"], "hint": null, "scoring": {"scoring_type": "any_keyword", "accept": ["시연", "최시연", "채시연"]}}, {"context_before": [{"nick": "하예슬", "text": "/운세"}, {"nick": "승철", "text": "/운세"}, {"nick": "시연", "text": "/운세"}, {"nick": "이로하", "text": "/운세"}], "question": {"nick": "이로하", "text": "@김대경 똥집이 얼마였지?"}, "context_middle": [], "answer": {"nick": "김대경", "text": "14000원이요"}, "context_after": [{"nick": "이로하", "text": "토요일\n@최건우 @혀노 6000원씩\n@이우빈 @포팩승철이형 @우성 9400원씩\n@김대경 -4600"}, {"nick": "이로하", "text": "일요일\n@이우빈 @동진이형 \n22600원씩 나왔는데 닷사이랑 등가교환으로 제가 냄"}, {"nick": "승철", "text": "우성 ㅋㅋㅋ"}, {"nick": "김대경", "text": "우성은 그렇게 자취를 감추었다"}], "date": "2025년 12월 15일", "prompt": "똥집이 얼마였을까?", "accept": ["14000원", "14000", "1만 4천원", "1만4천원", "1만4천", "14000원이요", "14천원", "만4천", "만4천원"], "hint": null, "scoring": {"scoring_type": "numeric_distance", "target": 14000, "late_only": true}}, {"context_before": [{"nick": "최건우", "text": "포팩인 사람"}, {"nick": "최건우", "text": "같이 돈가스 먹어요"}, {"nick": "근규", "text": "ㅎㅎ"}, {"nick": "김대경", "text": "포팩은 아니지만 돈가스는 먹도록할게"}], "question": {"nick": "근규", "text": "어디먹게?"}, "context_middle": [], "answer": {"nick": "김대경", "text": "역시 홍돈인가"}, "context_after": [{"nick": "이우빈", "text": "홍돈좋지"}, {"nick": "최건우", "text": "홍돈 갈까요"}, {"nick": "최건우", "text": "저 6시 쪼금 넘어서 도착합니다"}, {"nick": "승철", "text": "카레 구라핑아님?"}], "date": "2025년 9월 16일", "prompt": "돈가스 어디서 먹는다고 했을까?", "accept": ["홍돈"], "hint": null, "scoring": {"scoring_type": "any_keyword", "accept": ["홍돈", "홍익돈가스", "홍익", "홍익 돈가스"]}}, {"context_before": [{"nick": "하예슬", "text": "아니던데"}, {"nick": "하예슬", "text": "그"}, {"nick": "하예슬", "text": "장려금(국세청)"}, {"nick": "하예슬", "text": "이렇게들어왔는데"}, {"nick": "하예슬", "text": "국세청 앱은 없고 웹으로 들어가긴 귀찮음기기"}], "question": {"nick": "최건우", "text": "얼마 들어왔는데?"}, "context_middle": [{"nick": "하예슬", "text": "근데 월급보다 더많이 들어오니까 일하기싫다"}], "answer": {"nick": "하예슬", "text": "103마넌"}, "context_after": [{"nick": "최건우", "text": "많이 들어왔네"}, {"nick": "하예슬", "text": "내말이.."}, {"nick": "하예슬", "text": "월급이 80인데 장려금이 100임"}, {"nick": "하예슬", "text": "뭘 장려하는거지"}], "date": "2025년 8월 28일", "prompt": "장려금 얼마 들어왔을까?", "accept": ["103만원", "103만", "103마넌", "103", "백3만원", "백3만", "1백3만", "백삼만원", "백삼만"], "hint": null, "scoring": {"scoring_type": "numeric_distance", "target": 1030000, "late_only": true, "accept_text": ["103만", "103마넌", "백3만", "백삼만"]}}, {"context_before": [{"nick": "최건우", "text": "이번화 이직로그 감상회나 하는 게 낫지 않나"}, {"nick": "승철", "text": "비키 고정출연희망"}, {"nick": "김대경", "text": "나니키루 내는사람들 특)자기는 절대 공탁에서 저런거 생각안하면서 침"}, {"nick": "최건우", "text": "업무 도와줬다고"}, {"nick": "최건우", "text": "밥 살게요 라는 사람"}], "question": {"nick": "최건우", "text": "그린라이트인가요?"}, "context_middle": [], "answer": {"nick": "윤보근", "text": "메뉴 3개 시킬려는거임"}, "context_after": [{"nick": "승철", "text": "이성이면 좀 그린라이트지"}, {"nick": "승철", "text": "동성이면 밥 사줄 수 있는데"}, {"nick": "다은", "text": "이게 진자"}, {"nick": "다은", "text": "내 의견이었어"}], "date": "2026년 2월 12일", "prompt": "\"밥 살게요\"는 그린라이트가 아니라 뭘까?", "accept": ["메뉴 3개", "메뉴3개", "3개", "메뉴 시킬려고", "메뉴 시키려고", "3개 시킬려고", "3개 시키려고", "메뉴 세개", "세개"], "hint": null, "scoring": {"scoring_type": "any_keyword", "accept": ["메뉴 3개", "메뉴3개", "3개", "메뉴 시킬려고", "메뉴 시키려고", "3개 시킬려고", "3개 시키려고", "메뉴 세개", "세개", "세 개"]}}, {"context_before": [{"nick": "승철", "text": "기사님이 자신있나보네"}, {"nick": "시연", "text": "자신감넘치는 기사님 멋져"}, {"nick": "시연", "text": "맞지"}, {"nick": "지니", "text": "건 표고버섯 넣고싶네"}], "question": {"nick": "시연", "text": "...어디에?"}, "context_middle": [], "answer": {"nick": "지니", "text": "파스타에"}, "context_after": [{"nick": "시연", "text": "왜...??"}, {"nick": "지니", "text": "버섯 맛있잖아"}, {"nick": "최건우", "text": "?"}, {"nick": "지니", "text": "면 삶을때 같이 삶으면 포동포동 해진다고"}], "date": "2025년 8월 20일", "prompt": "지니가 표고버섯을 어디에 넣고 싶다고?", "accept": ["파스타", "파스타에"], "hint": null, "scoring": {"scoring_type": "any_keyword", "accept": ["파스타"]}}]</script>
+
+<script>
+const QUIZ_DATA = JSON.parse(document.getElementById('quiz-data').textContent);
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function smartShuffle(arr) {
+  // late_only 문제는 인덱스 3 이상에 위치하도록
+  const lateOnly = arr.filter(q => q.scoring && q.scoring.late_only);
+  const others = arr.filter(q => !q.scoring || !q.scoring.late_only);
+  
+  // 둘 다 셔플
+  const shuffledOthers = shuffle(others);
+  const shuffledLate = shuffle(lateOnly);
+  
+  // 처음 3개는 others에서 (late_only 빠짐)
+  const result = [];
+  
+  // 일단 처음 3개에 others 채우기
+  while (result.length < 3 && shuffledOthers.length > 0) {
+    result.push(shuffledOthers.shift());
+  }
+  
+  // 나머지 다 합쳐서 다시 셔플
+  const remaining = shuffle([...shuffledOthers, ...shuffledLate]);
+  result.push(...remaining);
+  
+  return result;
+}
+
+const SHUFFLED_QUIZ = smartShuffle(QUIZ_DATA);
+
+let currentIdx = 0;
+let scores = [];
+let revealed = false;
+
+function normalize(s) {
+  return s.replace(/\s/g, '').replace(/[.,!?~ㅋㅎㅠㅜ]/g, '').toLowerCase();
+}
+
+function scoreNumeric(userInput, target) {
+  // 사용자 입력에서 숫자 추출 (만/천/원 단위 처리)
+  let text = userInput.replace(/\s/g, '').replace(/[.,!?원이요]/g, '');
+  
+  // "103만" / "백3만" / "1만4천" 같은 한국어 숫자 처리
+  // "백" → "100", "천" → "1000", "만" → "10000"
+  // 단순 처리: "X만Y천" → X*10000+Y*1000
+  let parsed = NaN;
+  
+  // 패턴: 숫자만 (예: 14000, 1030000)
+  let m = text.match(/^(\d+)$/);
+  if (m) parsed = parseInt(m[1]);
+  
+  // 패턴: 숫자만원 (예: 103만, 14만4천)
+  if (isNaN(parsed)) {
+    m = text.match(/^(\d+)만(\d+)천?$/);
+    if (m) parsed = parseInt(m[1]) * 10000 + parseInt(m[2]) * 1000;
+  }
+  if (isNaN(parsed)) {
+    m = text.match(/^(\d+)만$/);
+    if (m) parsed = parseInt(m[1]) * 10000;
+  }
+  if (isNaN(parsed)) {
+    m = text.match(/^(\d+)천$/);
+    if (m) parsed = parseInt(m[1]) * 1000;
+  }
+  // 백삼만 → 1030000
+  if (isNaN(parsed)) {
+    const koMap = {'영':0,'일':1,'이':2,'삼':3,'사':4,'오':5,'육':6,'칠':7,'팔':8,'구':9,'십':10};
+    let s = text;
+    s = s.replace(/백/g, '00').replace(/천/g, '000').replace(/만/g, '0000');
+    // 다시 숫자만 추출
+    let mm = s.match(/^(\d+)$/);
+    if (mm) parsed = parseInt(mm[1]);
+  }
+  // "백3만" 형태: 한자 숫자 → 숫자
+  if (isNaN(parsed)) {
+    let s = text.replace(/백/g, '1').replace(/만/g, '0000').replace(/천/g, '000').replace(/십/g, '0');
+    let mm = s.match(/^(\d+)$/);
+    if (mm) parsed = parseInt(mm[1]);
+  }
+  
+  if (isNaN(parsed)) return 0;
+  
+  // target과의 거리 기반 점수
+  const diff = Math.abs(parsed - target);
+  const ratio = diff / target;
+  
+  if (diff === 0) return 1;
+  if (ratio <= 0.05) return 0.9;   // 5% 이내
+  if (ratio <= 0.15) return 0.7;   // 15% 이내
+  if (ratio <= 0.30) return 0.5;   // 30% 이내
+  if (ratio <= 0.50) return 0.3;   // 50% 이내
+  return 0;
+}
+
+function scoreText(userInput, answer, scoring) {
+  const u = normalize(userInput);
+  if (!u) return 0;
+  
+  if (!scoring) {
+    // fallback: 답변 텍스트와 직접 비교
+    const a = normalize(answer);
+    if (u === a) return 1;
+    if (a.includes(u) || u.includes(a)) return 1;
+    return 0;
+  }
+  
+  // 1. all_keywords: 그룹마다 하나라도 매치되어야 함 (AND)
+  if (scoring.scoring_type === 'all_keywords') {
+    const groups = scoring.required_groups || [];
+    let matchedGroups = 0;
+    for (const group of groups) {
+      const matched = group.some(kw => u.includes(normalize(kw)));
+      if (matched) matchedGroups++;
+    }
+    if (matchedGroups === groups.length) return 1;
+    if (matchedGroups >= groups.length - 1 && groups.length >= 2) return 0.5;
+    if (matchedGroups > 0) return 0.3;
+    return 0;
+  }
+  
+  // 2. any_keyword: 키워드 하나라도 들어가면 정답
+  if (scoring.scoring_type === 'any_keyword') {
+    const accept = scoring.accept || [];
+    for (const kw of accept) {
+      const nk = normalize(kw);
+      if (nk.length === 0) continue;
+      if (u.includes(nk) || nk.includes(u)) return 1;
+    }
+    // 부분 점수: 글자 유사도
+    let bestRatio = 0;
+    for (const kw of accept) {
+      const nk = normalize(kw);
+      if (nk.length === 0) continue;
+      const setU = new Set(u.split(""));
+      const setK = new Set(nk.split(""));
+      let common = 0;
+      setU.forEach(c => { if (setK.has(c)) common++; });
+      const ratio = common / Math.max(setU.size, setK.size);
+      if (ratio > bestRatio) bestRatio = ratio;
+    }
+    if (bestRatio >= 0.7) return 0.7;
+    if (bestRatio >= 0.5) return 0.5;
+    if (bestRatio >= 0.3) return 0.3;
+    return 0;
+  }
+  
+  // 3. numeric_distance: 숫자 거리 기반
+  if (scoring.scoring_type === 'numeric_distance') {
+    // accept_text도 있으면 그것도 체크
+    if (scoring.accept_text) {
+      for (const kw of scoring.accept_text) {
+        const nk = normalize(kw);
+        if (nk.length === 0) continue;
+        if (u.includes(nk) || nk.includes(u)) return 1;
+      }
+    }
+    return scoreNumeric(userInput, scoring.target);
+  }
+  
+  return 0;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderMessage(m, opts = {}) {
+  const cls = ['message'];
+  if (opts.fade) cls.push('context-fade');
+  if (opts.fadeAfter) cls.push('context-fade-after');
+  if (opts.afterAnswer) cls.push('message-after-answer');
+  if (opts.question) cls.push('message-question');
+  if (opts.answerSlot) cls.push('message-answer-slot');
+  if (opts.revealed) cls.push('revealed');
+
+  return `
+    <div class="${cls.join(' ')}">
+      <div class="message-nick">${escapeHtml(m.nick)}</div>
+      <div class="message-bubble">${escapeHtml(m.text)}</div>
+    </div>
+  `;
+}
+
+function renderQuestion() {
+  const q = SHUFFLED_QUIZ[currentIdx];
+  const total = SHUFFLED_QUIZ.length;
+  const totalScore = scores.reduce((s, x) => s + x.textScore, 0);
+
+  const messagesHtml = [
+    `<div class="date-divider"><span>${escapeHtml(q.date)}</span></div>`,
+    ...q.context_before.map(m => renderMessage(m, { fade: true })),
+    renderMessage(q.question, { question: true }),
+    ...(q.context_middle || []).map(m => renderMessage(m, { fade: true })),
+    renderMessage(q.answer, { answerSlot: true, revealed }),
+    ...q.context_after.map(m => renderMessage(m, { fadeAfter: true, afterAnswer: true }))
+  ].join('');
+
+  let feedbackHtml = '';
+  if (revealed) {
+    const last = scores[scores.length - 1];
+    let fbCls, fbTitle;
+    if (last.textScore === 1) {
+      fbCls = 'correct-fb'; fbTitle = '🎉 정답!';
+    } else if (last.textScore >= 0.3) {
+      fbCls = 'partial-fb'; fbTitle = '👍 비슷해요';
+    } else {
+      fbCls = 'wrong-fb'; fbTitle = '😢 아쉬워요';
+    }
+    feedbackHtml = `
+      <div class="feedback ${fbCls}">
+        <div class="feedback-title">${fbTitle} (${Math.round(last.textScore * 100)}점)</div>
+        <div>실제 답변: <strong>"${escapeHtml(q.answer.text)}"</strong></div>
+        ${last.userText ? `<div class="my-answer">내 답변: "${escapeHtml(last.userText)}"</div>` : '<div class="my-answer">(미입력)</div>'}
+      </div>
+    `;
+  }
+
+  const progressPct = (currentIdx / total) * 100;
+  const chatCardClass = revealed ? 'chat-card revealed-context' : 'chat-card';
+
+  return `
+    <div class="score-display">
+      <div>문제 ${currentIdx + 1} / ${total}</div>
+      <div>현재 점수: <strong>${totalScore.toFixed(1)}점</strong></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${progressPct}%"></div></div>
+
+    <div class="prompt-card">
+      <div class="prompt-label">Q${currentIdx + 1}.</div>
+      <div class="prompt-text">${escapeHtml(q.prompt)}</div>
+    </div>
+
+    <div class="${chatCardClass}">
+      ${messagesHtml}
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <input type="text" class="text-input" id="text-input"
+               placeholder="여기에 답을 적어주세요"
+               ${revealed ? 'disabled' : ''}
+               value="${escapeHtml(scores[currentIdx]?.userText || '')}"
+               autocomplete="off">
+        ${!revealed
+          ? `<button class="btn btn-primary" id="submit-btn">확인</button>`
+          : `<button class="btn btn-primary" id="next-btn">${currentIdx + 1 >= total ? '결과 →' : '다음 →'}</button>`
+        }
+      </div>
+      ${feedbackHtml}
+      ${!revealed ? `<div class="button-row"><button class="btn btn-secondary" id="skip-btn">패스</button></div>` : ''}
+    </div>
+  `;
+}
+
+function renderFinal() {
+  const total = SHUFFLED_QUIZ.length;
+  const totalScore = scores.reduce((s, x) => s + x.textScore, 0);
+  const pct = (totalScore / total) * 100;
+
+  let grade = '';
+  if (pct >= 90) grade = '🏆 이로하우스 마스터';
+  else if (pct >= 70) grade = '🥇 거의 한 명의 멤버';
+  else if (pct >= 50) grade = '🥈 가끔 보는 친구';
+  else if (pct >= 30) grade = '🥉 인사 정도는 하는 사이';
+  else grade = '👀 처음 들어와봤어요';
+
+  const reviewHtml = SHUFFLED_QUIZ.map((q, idx) => {
+    const s = scores[idx] || { textScore: 0, userText: '' };
+    let tag;
+    if (s.textScore === 1) tag = '<span class="tag-correct">정답</span>';
+    else if (s.textScore >= 0.3) tag = '<span class="tag-partial">부분</span>';
+    else tag = '<span class="tag-wrong">오답</span>';
+
+    return `
+      <div class="review-item">
+        <div style="color:var(--text-meta); margin-bottom:4px; font-weight:600;">${idx+1}. ${escapeHtml(q.prompt)}</div>
+        <div>→ <strong>${escapeHtml(q.answer.nick)}</strong>: "${escapeHtml(q.answer.text)}" ${tag}</div>
+        ${s.userText ? `<div style="color:var(--text-meta); font-size:12px; margin-top:2px;">내 답: "${escapeHtml(s.userText)}"</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="final-screen">
+      <h2>퀴즈 종료!</h2>
+      <div class="score">${totalScore.toFixed(1)} / ${total}</div>
+      <div class="grade">${grade}</div>
+      <button class="btn btn-primary" onclick="location.reload()">다시 풀기</button>
+    </div>
+    <div style="margin-top:16px;">
+      <h3 style="font-size:14px; color:var(--text-dark); margin-bottom:8px; padding:0 4px;">📋 풀이 결과</h3>
+      ${reviewHtml}
+    </div>
+  `;
+}
+
+function render() {
+  const area = document.getElementById('quiz-area');
+  if (currentIdx >= SHUFFLED_QUIZ.length) {
+    area.innerHTML = renderFinal();
+    return;
+  }
+  area.innerHTML = renderQuestion();
+  bindEvents();
+  if (!revealed) {
+    const input = document.getElementById('text-input');
+    if (input) input.focus();
+  }
+}
+
+function bindEvents() {
+  const submitBtn = document.getElementById('submit-btn');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', () => {
+      const q = SHUFFLED_QUIZ[currentIdx];
+      const userText = document.getElementById('text-input').value.trim();
+      const textScore = scoreText(userText, q.answer.text, q.scoring);
+      scores.push({ textScore, userText });
+      revealed = true;
+      render();
+    });
+  }
+  const skipBtn = document.getElementById('skip-btn');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', () => {
+      const userText = document.getElementById('text-input').value.trim();
+      scores.push({ textScore: 0, userText });
+      revealed = true;
+      render();
+    });
+  }
+  const nextBtn = document.getElementById('next-btn');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      currentIdx++;
+      revealed = false;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+  const textInput = document.getElementById('text-input');
+  if (textInput && !revealed) {
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && submitBtn) {
+        e.preventDefault();
+        submitBtn.click();
+      }
+    });
+  }
+}
+
+render();
+</script>
+</body>
+</html>
